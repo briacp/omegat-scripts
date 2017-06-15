@@ -2,7 +2,7 @@
  *
  * @author  Briac Pilpré
  * @date    2017-06-15
- * @version 0.1
+ * @version 0.2
  */
 import static javax.swing.JOptionPane.*
 
@@ -19,7 +19,6 @@ sourceDir = new File(prop.projectRoot, 'source');
 
 outputDir.mkdirs();
 
-
 class SDLXLIFFFilter implements FilenameFilter {
     public boolean accept(File f, String filename) {
         return filename.endsWith("sdlxliff") || filename.endsWith("xdliff");
@@ -33,7 +32,6 @@ sourceDir.list(new SDLXLIFFFilter()).each { xliffFile ->
 
 	def xliff = new XmlSlurper().parse(new File(sourceDir, xliffFile));
 	
-	// TODO - check internal-file/@form="base64"
 	def fileForm = xliff.file.header.reference['internal-file'].@form;
 	if (fileForm != 'base64') {
 		console.println("Internal file is not a base64 file (" + fileForm + ")");
@@ -43,9 +41,20 @@ sourceDir.list(new SDLXLIFFFilter()).each { xliffFile ->
 	def base64 = xliff.file.header.reference['internal-file'].text();
 
 	def outputFile = new File(outputDir, outputFileName + ".zip");
-	console.println("${outputFile} extracted.\n");
+	console.println("  -> ${outputFile} extracted.");
 
 	outputFile.setBytes(base64.decodeBase64());
+
+	def zipFile = new java.util.zip.ZipFile(outputFile);
+	zipFile.entries().findAll { !it.directory }.each {
+		def extractedFile = outputFileName + "_" + it.toString();
+		console.println("    -> ${extractedFile}");
+		new File(outputDir, extractedFile).text = zipFile.getInputStream(it).text
+	}
+	zipFile.close();
+	outputFile.delete();
+
+	console.println("\n");
 }
 
 return true;
